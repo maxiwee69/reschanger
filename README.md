@@ -1,4 +1,4 @@
-to add a game add it behind line 12 like this 
+To add a game add it behind line 12 like this 
 ```
 {"game_name.exe", false}
 ```
