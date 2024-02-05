@@ -13,6 +13,8 @@ std::unordered_set<std::string> appRunning = {
     "GTA5.exe"
 };
 
+std::unordered_set<std::string> promptedApps;
+
 DEVMODE originalResolution;
 DWORD originalRefreshRate;
 
@@ -27,7 +29,7 @@ bool IsProcessRunning(const std::string& processName) {
     pEntry.dwSize = sizeof(pEntry);
     BOOL hRes = Process32First(hSnapShot, &pEntry);
     while (hRes) {
-        if (appRunning.find(pEntry.szExeFile) != appRunning.end()) {
+        if (strcmp(pEntry.szExeFile, processName.c_str()) == 0) {
             CloseHandle(hSnapShot);
             return true;
         }
@@ -37,8 +39,42 @@ bool IsProcessRunning(const std::string& processName) {
     return false;
 }
 
-void ChangeResolution(int width, int height, int frequency) {
-    if (width == originalResolution.dmPelsWidth && height == originalResolution.dmPelsHeight && frequency == originalResolution.dmDisplayFrequency) {
+void ChangeResolution(const std::string& appName) {
+    if (promptedApps.find(appName) != promptedApps.end()) {
+        return;
+    }
+
+    promptedApps.insert(appName);
+
+    int width = 0, height = 0;
+
+    int msgboxID = MessageBoxA(
+        NULL,
+        "Do you want to change the resolution?\n"
+        "Yes: 1080x1080\n"
+        "No: 1440x1080\n"
+        "Cancel: No change",
+        "Resolution Change",
+        MB_ICONQUESTION | MB_YESNOCANCEL | MB_DEFBUTTON2
+    );
+
+    switch (msgboxID)
+    {
+    case IDYES:
+        width = 1080;
+        height = 1080;
+        break;
+    case IDNO:
+        width = 1440;
+        height = 1080;
+        break;
+    case IDCANCEL:
+        width = originalResolution.dmPelsWidth;
+        height = originalResolution.dmPelsHeight;
+        break;
+    }
+
+    if (width == originalResolution.dmPelsWidth && height == originalResolution.dmPelsHeight) {
         return;
     }
 
@@ -47,10 +83,13 @@ void ChangeResolution(int width, int height, int frequency) {
     dmScreenSettings.dmDriverExtra = 0;
     dmScreenSettings.dmPelsWidth = width;
     dmScreenSettings.dmPelsHeight = height;
-    dmScreenSettings.dmDisplayFrequency = frequency;
+    dmScreenSettings.dmDisplayFrequency = 144;
     dmScreenSettings.dmFields = DM_PELSWIDTH | DM_PELSHEIGHT | DM_DISPLAYFREQUENCY;
 
     LONG result = ChangeDisplaySettings(&dmScreenSettings, CDS_UPDATEREGISTRY);
+    if (result != DISP_CHANGE_SUCCESSFUL) {
+        MessageBoxW(NULL, L"Failed to change display settings. The requested graphics mode may not be supported.", L"Error", MB_OK | MB_ICONERROR);
+    }
 }
 
 void RestoreResolution() {
@@ -60,42 +99,13 @@ void RestoreResolution() {
 int main() {
     SaveCurrentResolution();
 
-    int width = 0, height = 0;
-
     while (true) {
         for (const auto& app : appRunning) {
             bool isRunning = IsProcessRunning(app);
             if (isRunning) {
-                if (width == 0 && height == 0) { // Only show the MessageBox once
-                    int msgboxID = MessageBoxA(
-                        NULL,
-                        "Do you want to change the resolution?\n"
-                        "Yes: 1080x1080\n"
-                        "No: 1440x1080\n"
-                        "Cancel: No change",
-                        "Resolution Change",
-                        MB_ICONQUESTION | MB_YESNOCANCEL | MB_DEFBUTTON2
-                    );
-
-                    switch (msgboxID)
-                    {
-                    case IDYES:
-                        width = 1080;
-                        height = 1080;
-                        break;
-                    case IDNO:
-                        width = 1440;
-                        height = 1080;
-                        break;
-                    case IDCANCEL:
-                        width = originalResolution.dmPelsWidth;
-                        height = originalResolution.dmPelsHeight;
-                        break;
-                    }
-                }
-
-                ChangeResolution(width, height, 144);
-            } else {
+                ChangeResolution(app);
+            } else if (!isRunning && promptedApps.find(app) != promptedApps.end()) {
+                promptedApps.erase(app);
                 RestoreResolution();
             }
         }
