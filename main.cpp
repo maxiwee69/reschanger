@@ -9,7 +9,8 @@ std::map<std::string, bool> appRunning = {
     {"FortniteClient-Win64-Shipping.exe", false},
     {"RainbowSix_Vulkan.exe", false},
     {"RainbowSix.exe", false},
-    {"cs2.exe", false}
+    {"cs2.exe", false},
+    {"GTA5.exe", false}
 };
 
 DEVMODE originalResolution;
