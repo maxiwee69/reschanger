@@ -1,16 +1,16 @@
 #include <windows.h>
 #include <tlhelp32.h>
-#include <map>
+#include <unordered_set>
 #include <string>
 #include <iostream>
 #include <thread>
 
-std::map<std::string, bool> appRunning = {
-    {"FortniteClient-Win64-Shipping.exe", false},
-    {"RainbowSix_Vulkan.exe", false},
-    {"RainbowSix.exe", false},
-    {"cs2.exe", false},
-    {"GTA5.exe", false}
+std::unordered_set<std::string> appRunning = {
+    "FortniteClient-Win64-Shipping.exe",
+    "RainbowSix_Vulkan.exe",
+    "RainbowSix.exe",
+    "cs2.exe",
+    "GTA5.exe"
 };
 
 DEVMODE originalResolution;
@@ -21,13 +21,13 @@ void SaveCurrentResolution() {
     originalRefreshRate = originalResolution.dmDisplayFrequency;
 }
 
-bool IsProcessRunning(const char *processName) {
+bool IsProcessRunning(const std::string& processName) {
     HANDLE hSnapShot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
     PROCESSENTRY32 pEntry;
     pEntry.dwSize = sizeof(pEntry);
     BOOL hRes = Process32First(hSnapShot, &pEntry);
     while (hRes) {
-        if (strcmp(pEntry.szExeFile, processName) == 0) {
+        if (appRunning.find(pEntry.szExeFile) != appRunning.end()) {
             CloseHandle(hSnapShot);
             return true;
         }
@@ -38,6 +38,10 @@ bool IsProcessRunning(const char *processName) {
 }
 
 void ChangeResolution(int width, int height, int frequency) {
+    if (width == originalResolution.dmPelsWidth && height == originalResolution.dmPelsHeight && frequency == originalResolution.dmDisplayFrequency) {
+        return;
+    }
+
     DEVMODE dmScreenSettings = {0};
     dmScreenSettings.dmSize = sizeof(dmScreenSettings);
     dmScreenSettings.dmDriverExtra = 0;
@@ -47,9 +51,6 @@ void ChangeResolution(int width, int height, int frequency) {
     dmScreenSettings.dmFields = DM_PELSWIDTH | DM_PELSHEIGHT | DM_DISPLAYFREQUENCY;
 
     LONG result = ChangeDisplaySettings(&dmScreenSettings, CDS_UPDATEREGISTRY);
-    if (result != DISP_CHANGE_SUCCESSFUL) {
-        MessageBoxW(NULL, L"Failed to change display settings. The requested graphics mode may not be supported.", L"Error", MB_OK | MB_ICONERROR);
-    }
 }
 
 void RestoreResolution() {
@@ -62,9 +63,9 @@ int main() {
     int width = 0, height = 0;
 
     while (true) {
-        for (auto &app : appRunning) {
-            bool isRunning = IsProcessRunning(app.first.c_str());
-            if (isRunning && !app.second) {
+        for (const auto& app : appRunning) {
+            bool isRunning = IsProcessRunning(app);
+            if (isRunning) {
                 if (width == 0 && height == 0) { // Only show the MessageBox once
                     int msgboxID = MessageBoxA(
                         NULL,
@@ -94,10 +95,8 @@ int main() {
                 }
 
                 ChangeResolution(width, height, 144);
-                app.second = true;
-            } else if (!isRunning && app.second) {
+            } else {
                 RestoreResolution();
-                app.second = false;
             }
         }
         std::this_thread::sleep_for(std::chrono::seconds(3));
