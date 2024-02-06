@@ -4,6 +4,7 @@
 #include <string>
 #include <iostream>
 #include <thread>
+#include <fstream>
 
 std::unordered_set<std::string> appRunning = {
     "FortniteClient-Win64-Shipping.exe",
@@ -17,6 +18,13 @@ std::unordered_set<std::string> promptedApps;
 
 DEVMODE originalResolution;
 DWORD originalRefreshRate;
+
+void LogMessage(const std::string& message) {
+    std::ofstream logFile;
+    logFile.open("log.txt", std::ios_base::app); // Append to the log file
+    logFile << message << std::endl;
+    logFile.close();
+}
 
 void SaveCurrentResolution() {
     EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &originalResolution);
@@ -89,11 +97,15 @@ void ChangeResolution(const std::string& appName) {
     LONG result = ChangeDisplaySettings(&dmScreenSettings, CDS_UPDATEREGISTRY);
     if (result != DISP_CHANGE_SUCCESSFUL) {
         MessageBoxW(NULL, L"Failed to change display settings. The requested graphics mode may not be supported.", L"Error", MB_OK | MB_ICONERROR);
+        LogMessage("Failed to change display settings for " + appName);
+    } else {
+        LogMessage("Changed display settings for " + appName);
     }
 }
 
 void RestoreResolution() {
     ChangeDisplaySettings(&originalResolution, 0);
+    LogMessage("Restored original display settings");
 }
 
 int main() {
