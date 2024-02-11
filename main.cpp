@@ -19,6 +19,21 @@ std::unordered_set<std::string> promptedApps;
 DEVMODE originalResolution;
 DWORD originalRefreshRate;
 
+void StandardResolution() {
+    DEVMODE dmScreenSettings = {0};
+    dmScreenSettings.dmSize = sizeof(dmScreenSettings);
+    dmScreenSettings.dmDriverExtra = 0;
+    dmScreenSettings.dmPelsWidth = 2880;
+    dmScreenSettings.dmPelsHeight = 2180;
+    dmScreenSettings.dmDisplayFrequency = 140;
+    dmScreenSettings.dmFields = DM_PELSWIDTH | DM_PELSHEIGHT | DM_DISPLAYFREQUENCY;
+
+    LONG result = ChangeDisplaySettings(&dmScreenSettings, CDS_UPDATEREGISTRY);
+    if (result != DISP_CHANGE_SUCCESSFUL) {
+        MessageBoxW(NULL, L"Failed to change display Res to 2880x2160. The requested graphics mode may not be supported.", L"Error", MB_OK | MB_ICONERROR);
+    }
+}
+
 void LogMessage(const std::string& message) {
     std::ofstream logFile;
     logFile.open("log.txt", std::ios_base::app); // Append to the log file
@@ -77,8 +92,7 @@ void ChangeResolution(const std::string& appName) {
         height = 1080;
         break;
     case IDCANCEL:
-        width = originalResolution.dmPelsWidth;
-        height = originalResolution.dmPelsHeight;
+        StandardResolution();
         break;
     }
 
@@ -103,11 +117,6 @@ void ChangeResolution(const std::string& appName) {
     }
 }
 
-void RestoreResolution() {
-    ChangeDisplaySettings(&originalResolution, 0);
-    LogMessage("Restored original display settings");
-}
-
 int main() {
     SaveCurrentResolution();
 
@@ -118,7 +127,7 @@ int main() {
                 ChangeResolution(app);
             } else if (!isRunning && promptedApps.find(app) != promptedApps.end()) {
                 promptedApps.erase(app);
-                RestoreResolution();
+                StandardResolution();
             }
         }
         std::this_thread::sleep_for(std::chrono::seconds(3));
